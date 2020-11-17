@@ -112,89 +112,101 @@ export default class GameController {
   async onCellClick(index) {
     // TODO: react to click
     this.index = index;
-    if (!this.blockGame) {
-      if (this.checkPosition(this.userPositions) !== -1) {
-        this.gamePlay.deselectCell(currentUnitNumber);
-        this.gamePlay.selectCell(index);
-        currentUnitNumber = index;
-        this.currentCharacter = [...this.userPositions].find(
-          (item) => item.position === index,
-        );
-        this.selectedCell = true;
-      } else if (this.selectedCell && this.gamePlay.boardEl.style.cursor === 'pointer') {
-        this.currentCharacter.position = index;
-        this.gamePlay.deselectCell(currentUnitNumber);
-        this.gamePlay.deselectCell(index);
-        this.selectedCell = false;
-        this.gamePlay.redrawPositions([...this.userPositions, ...this.cpuPositions]);
-        this.run = 'computer';
-        this.strategyComputer();
-      } else if (this.selectedCell
-      && this.gamePlay.boardEl.style.cursor === 'crosshair') {
-        const targetAttack = [...this.cpuPositions].find(
-          (item) => item.position === index,
-        );
-        this.gamePlay.deselectCell(currentUnitNumber);
-        this.gamePlay.deselectCell(index);
-        this.gamePlay.setCursor(cursors.auto);
-        await this.actionAttack(
-          this.currentCharacter.character,
-          targetAttack,
-        );
-        if (this.cpuPositions.length > 0) {
-          this.strategyComputer();
-        }
-      } else { GamePlay.showError('Выбирите вашего персонажа!'); }
+    if (this.blockGame) {
+      return;
     }
+    if (this.checkPosition(this.userPositions) !== -1) {
+      this.gamePlay.deselectCell(currentUnitNumber);
+      this.gamePlay.selectCell(index);
+      currentUnitNumber = index;
+      this.currentCharacter = [...this.userPositions].find(
+        (item) => item.position === index,
+      );
+      this.selectedCell = true;
+      return;
+    }
+    if (this.selectedCell && this.gamePlay.boardEl.style.cursor === 'pointer') {
+      this.currentCharacter.position = index;
+      this.gamePlay.deselectCell(currentUnitNumber);
+      this.gamePlay.deselectCell(index);
+      this.selectedCell = false;
+      this.gamePlay.redrawPositions([...this.userPositions, ...this.cpuPositions]);
+      this.run = 'computer';
+      this.strategyComputer();
+      return;
+    }
+    if (this.selectedCell
+      && this.gamePlay.boardEl.style.cursor === 'crosshair') {
+      const targetAttack = [...this.cpuPositions].find(
+        (item) => item.position === index,
+      );
+      this.gamePlay.deselectCell(currentUnitNumber);
+      this.gamePlay.deselectCell(index);
+      this.gamePlay.setCursor(cursors.auto);
+      await this.actionAttack(
+        this.currentCharacter.character,
+        targetAttack,
+      );
+      if (this.cpuPositions.length > 0) {
+        this.strategyComputer();
+      }
+      return;
+    }
+    GamePlay.showError('Выбирите вашего персонажа!');
   }
 
   onCellEnter(index) {
     // TODO: react to mouse enter
     this.index = index;
-    if (!this.blockGame) {
-      for (const item of [...this.userPositions, ...this.cpuPositions]) {
-        if (item.position === index) {
-          this.gamePlay.showCellTooltip(
-            getInfoCharacter(item.character),
-            index,
-          );
-        }
-        if (this.checkPosition([...this.userPositions]) !== -1) {
+    if (this.blockGame) {
+      return;
+    }
+    for (const item of [...this.userPositions, ...this.cpuPositions]) {
+      if (item.position === index) {
+        this.gamePlay.showCellTooltip(
+          getInfoCharacter(item.character),
+          index,
+        );
+      }
+      if (this.checkPosition([...this.userPositions]) !== -1) {
+        this.gamePlay.setCursor(cursors.pointer);
+      }
+
+      if (this.selectedCell) {
+        checkedPosition = this.currentCharacter.position;
+        checkedDistance = this.currentCharacter.character.distance;
+        boardSize = this.gamePlay.boardSize;
+
+        const freeWay = checkAction(
+          checkedPosition,
+          checkedDistance,
+          boardSize,
+        );
+
+        checkedDistance = this.currentCharacter.character.distanceAttack;
+        const freeAttack = checkActionAttack(
+          checkedPosition,
+          checkedDistance,
+          boardSize,
+        );
+        if (this.checkPosition(this.userPositions) !== -1) {
           this.gamePlay.setCursor(cursors.pointer);
+          return;
         }
-
-        if (this.selectedCell) {
-          checkedPosition = this.currentCharacter.position;
-          checkedDistance = this.currentCharacter.character.distance;
-          boardSize = this.gamePlay.boardSize;
-
-          const freeWay = checkAction(
-            checkedPosition,
-            checkedDistance,
-            boardSize,
-          );
-
-          checkedDistance = this.currentCharacter.character.distanceAttack;
-          const freeAttack = checkActionAttack(
-            checkedPosition,
-            checkedDistance,
-            boardSize,
-          );
-          if (this.checkPosition(this.userPositions) !== -1) {
-            this.gamePlay.setCursor(cursors.pointer);
-          } else if (
-            freeWay.includes(index)
+        if (
+          freeWay.includes(index)
             && this.checkPosition([...this.userPositions, ...this.cpuPositions]) === -1) {
-            this.gamePlay.selectCell(index, 'green');
-            this.gamePlay.setCursor(cursors.pointer);
-          } else if (freeAttack.includes(index)
-            && this.checkPosition(this.cpuPositions) !== -1) {
-            this.gamePlay.selectCell(index, 'red');
-            this.gamePlay.setCursor(cursors.crosshair);
-          } else {
-            this.gamePlay.setCursor(cursors.notallowed);
-          }
+          this.gamePlay.selectCell(index, 'green');
+          this.gamePlay.setCursor(cursors.pointer);
+          return;
         }
+        if (freeAttack.includes(index)
+            && this.checkPosition(this.cpuPositions) !== -1) {
+          this.gamePlay.selectCell(index, 'red');
+          this.gamePlay.setCursor(cursors.crosshair);
+          return;
+        }
+        this.gamePlay.setCursor(cursors.notallowed);
       }
     }
   }
@@ -220,22 +232,25 @@ export default class GameController {
     await this.gamePlay.showDamage(target.position, damage);
     targetCharacter.health -= damage;
     this.run = this.run === 'computer' ? 'user' : 'computer';
-    if (targetCharacter.health <= 0) {
-      this.userPositions = this.userPositions.filter((unit) => unit.position !== target.position);
-      this.cpuPositions = this.cpuPositions.filter((unit) => unit.position !== target.position);
-      if (this.userPositions.length === 0) {
-        GamePlay.showMessage('Вы проиграли :(');
-        this.blockGame = true;
-      }
-      if (this.cpuPositions.length === 0) {
-        for (const unit of this.userPositions) {
-          this.score += unit.character.health;
-        }
-        this.levelUp();
-        this.stage += 1;
-        this.letsPlay();
-      }
+    if (targetCharacter.health > 0) {
+      this.gamePlay.redrawPositions([...this.userPositions, ...this.cpuPositions]);
+      return;
     }
+    this.userPositions = this.userPositions.filter((unit) => unit.position !== target.position);
+    this.cpuPositions = this.cpuPositions.filter((unit) => unit.position !== target.position);
+    if (this.userPositions.length === 0) {
+      GamePlay.showMessage('Вы проиграли :(');
+      this.blockGame = true;
+    }
+    if (this.cpuPositions.length === 0) {
+      for (const unit of this.userPositions) {
+        this.score += unit.character.health;
+      }
+      this.levelUp();
+      this.stage += 1;
+      this.letsPlay();
+    }
+
     this.gamePlay.redrawPositions([...this.userPositions, ...this.cpuPositions]);
   }
 
